@@ -17,6 +17,7 @@
     --bar: #f7f9fa;
     --line: #c9d0d6;
     --accent: #2f6f8f;
+    --flag: #e0322b;   /* Rot der Markierung – hier anpassen */
     --note-w: 210px;
   }
   * { box-sizing: border-box; }
@@ -82,6 +83,27 @@
   }
   .note .people { font-size: 14px; line-height: 1.35; margin-bottom: 6px; }
   .note .time { font-size: 13px; color: var(--muted); }
+  .controls {
+    display: flex; justify-content: flex-end; align-items: center; gap: 6px;
+    margin-top: 10px;
+  }
+  .controls select {
+    font: inherit; font-size: 12px; color: var(--ink);
+    max-width: 140px; padding: 2px 4px;
+    background: rgba(255,255,255,.6);
+    border: 1px solid rgba(34,40,46,.3); border-radius: 4px;
+    cursor: pointer;
+  }
+  .flag {
+    width: 26px; height: 26px; padding: 2px;
+    background: none; border: 0; border-radius: 4px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .flag:hover { background: rgba(255,255,255,.45); }
+  .flag svg { width: 20px; height: 20px; display: block; }
+  .flag path { fill: transparent; stroke: var(--ink); stroke-width: 1.8; stroke-linejoin: round; }
+  .flag.on path { fill: var(--flag); stroke: var(--flag); }
+  .controls select:focus-visible, .flag:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .empty {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     padding: 24px; text-align: center; color: var(--muted); font-size: 15px; line-height: 1.5;
@@ -118,6 +140,54 @@
   let pendingRender = false;
   let selectedId = null;
   let zoom = 1;
+  let choices = [];        // Auswahlwerte der Kategorie-Spalte
+  let choiceColors = {};   // Farben der Auswahlwerte aus Grist
+
+  const FLAG_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-5.2L6 21z"/></svg>';
+
+  // Liest die Auswahlwerte der zugeordneten Choice-Spalte aus den Grist-Metadaten
+  async function loadChoices() {
+    const colId = mappings && mappings.Kategorie;
+    if (!colId) { choices = []; choiceColors = {}; return; }
+    try {
+      let tableRef = null;
+      try {
+        const tableId = await grist.selectedTable.getTableId();
+        const tables = await grist.docApi.fetchTable('_grist_Tables');
+        const i = tables.tableId.indexOf(tableId);
+        if (i >= 0) tableRef = tables.id[i];
+      } catch (e) { /* ältere Grist-Version: nur nach Spalten-ID suchen */ }
+      const cols = await grist.docApi.fetchTable('_grist_Tables_column');
+      for (let i = 0; i < cols.id.length; i++) {
+        if (cols.colId[i] !== colId) continue;
+        if (tableRef !== null && cols.parentId[i] !== tableRef) continue;
+        const opts = JSON.parse(cols.widgetOptions[i] || '{}');
+        choices = opts.choices || [];
+        choiceColors = opts.choiceOptions || {};
+        return;
+      }
+    } catch (e) {
+      console.warn('Kategorien konnten nicht geladen werden', e);
+    }
+  }
+
+  function categoryOptions(current) {
+    const list = choices.slice();
+    if (current && !list.includes(current)) list.push(current); // Wert behalten, auch wenn er keine gültige Auswahl ist
+    return '<option value="">– Kategorie –</option>' + list.map(c =>
+      '<option value="' + esc(c) + '"' + (c === current ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
+  }
+
+  async function saveField(id, widgetCol, value) {
+    if (!mappings || !mappings[widgetCol]) return;
+    statusEl.textContent = 'Speichere …';
+    try {
+      await grist.selectedTable.update({ id, fields: { [mappings[widgetCol]]: value } });
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = 'Nicht gespeichert: Zugriffsstufe „Full document access“ erteilen.';
+    }
+  }
 
   grist.ready({
     requiredAccess: 'full',
@@ -132,13 +202,18 @@
         description: 'Wenn gesetzt, wird dies statt Beginn–Ende angezeigt' },
       { name: 'Farbe', title: 'Farbe', type: 'Any', optional: true,
         description: 'Hex-Farbe (#ffcc00) oder Kategorie wie Status/Choice' },
+      { name: 'Markiert', title: 'Markiert (Flagge)', type: 'Bool', optional: true,
+        description: 'Toggle-Spalte; True = rote Flagge' },
+      { name: 'Kategorie', title: 'Kategorie (Dropdown)', type: 'Choice', optional: true,
+        description: 'Choice-Spalte; ihre Auswahlwerte erscheinen im Dropdown' },
       { name: 'PosX', title: 'Position X', type: 'Numeric,Int' },
       { name: 'PosY', title: 'Position Y', type: 'Numeric,Int' }
     ]
   });
 
-  grist.onRecords(function (records, maps) {
+  grist.onRecords(async function (records, maps) {
     mappings = maps;
+    await loadChoices();
     const mapped = records.map(r => {
       const m = grist.mapColumnNames(r, { mappings: maps });
       if (m) m.id = r.id;
@@ -226,6 +301,48 @@
         (people ? '<div class="people">' + esc(people) + '</div>' : '') +
         (time ? '<div class="time">' + esc(time) + '</div>' : '');
 
+      // Steuerelemente unten rechts: Kategorie-Dropdown, dann Flagge
+      if (mappings.Kategorie || mappings.Markiert) {
+        const ctr = document.createElement('div');
+        ctr.className = 'controls';
+
+        if (mappings.Kategorie) {
+          const cur = toText(n.Kategorie);
+          const sel = document.createElement('select');
+          sel.title = 'Kategorie wählen';
+          sel.innerHTML = categoryOptions(cur);
+          const fill = cur && choiceColors[cur] && choiceColors[cur].fillColor;
+          if (fill) sel.style.background = fill;
+          sel.addEventListener('change', () => {
+            n.Kategorie = sel.value;
+            const c = choiceColors[sel.value] && choiceColors[sel.value].fillColor;
+            sel.style.background = c || '';
+            saveField(n.id, 'Kategorie', sel.value);
+          });
+          ctr.appendChild(sel);
+        }
+
+        if (mappings.Markiert) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          const setState = on => {
+            btn.classList.toggle('on', on);
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            btn.title = on ? 'Markierung entfernen' : 'Markieren';
+          };
+          btn.className = 'flag';
+          btn.innerHTML = FLAG_SVG;
+          setState(n.Markiert === true);
+          btn.addEventListener('click', () => {
+            n.Markiert = !(n.Markiert === true);
+            setState(n.Markiert);
+            saveField(n.id, 'Markiert', n.Markiert);
+          });
+          ctr.appendChild(btn);
+        }
+        el.appendChild(ctr);
+      }
+
       el.addEventListener('pointerdown', startDrag);
       el.addEventListener('keydown', keyMove);
       board.appendChild(el);
@@ -271,6 +388,7 @@
   // ---------- Drag & Drop ----------
   function startDrag(e) {
     if (e.button !== undefined && e.button !== 0) return;
+    if (e.target.closest('.controls')) return; // Dropdown/Flagge bedienen statt ziehen
     const el = e.currentTarget;
     const id = Number(el.dataset.id);
     el.setPointerCapture(e.pointerId);
@@ -311,6 +429,7 @@
     if (pendingRender) { pendingRender = false; render(); }
   }
   function keyMove(e) {
+    if (e.target !== e.currentTarget) return; // Tasten im Dropdown/Button nicht abfangen
     const step = e.shiftKey ? 50 : 10;
     const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
     if (e.key === 'Enter') { grist.setCursorPos({ rowId: Number(e.currentTarget.dataset.id) }); return; }
