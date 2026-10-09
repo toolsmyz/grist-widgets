@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Projekt-Pinnwand v1.2 -->
 <html lang="de">
 <head>
 <meta charset="utf-8">
@@ -88,9 +89,9 @@
     margin-top: 10px;
   }
   .controls select {
-    font: inherit; font-size: 12px; color: var(--ink);
-    max-width: 140px; padding: 2px 4px;
-    background: rgba(255,255,255,.6);
+    font: inherit; font-size: 10.8px; color: var(--ink);
+    max-width: 126px; padding: 2px 4px;
+    background: transparent;
     border: 1px solid rgba(34,40,46,.3); border-radius: 4px;
     cursor: pointer;
   }
@@ -174,7 +175,7 @@
   function categoryOptions(current) {
     const list = choices.slice();
     if (current && !list.includes(current)) list.push(current); // Wert behalten, auch wenn er keine gültige Auswahl ist
-    return '<option value="">– Kategorie –</option>' + list.map(c =>
+    return '<option value="">Kategorie</option>' + list.map(c =>
       '<option value="' + esc(c) + '"' + (c === current ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
   }
 
