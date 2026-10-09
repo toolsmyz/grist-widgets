@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Projekt-Pinnwand v1.2 -->
+<!-- Projekt-Pinnwand v1.5 -->
 <html lang="de">
 <head>
 <meta charset="utf-8">
@@ -8,132 +8,164 @@
 <!-- Grist Plugin API. Alternativ von deinem eigenen Server laden: https://DEIN-GRIST/grist-plugin-api.js -->
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --board: #dfe4e8;
-    --dot: #c3cad1;
-    --ink: #22282e;
-    --muted: #5b6670;
-    --bar: #f7f9fa;
-    --line: #c9d0d6;
+    --board: #f4f4f1;   /* Hintergrund der Pinnwand */
+    --dot: #d9d8d2;     /* Punkteraster */
+    --ink: #2b2f2a;
+    --muted: #4f564b;
     --accent: #2f6f8f;
-    --flag: #e0322b;   /* Rot der Markierung – hier anpassen */
-    --note-w: 210px;
+    --flag: #e0322b;      /* Rot der Markierung */
+    --hover: #fff1a6;     /* Hover-Farbe der Buttons in der Menüleiste */
+    --note-w: 230px;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
   body {
-    font-family: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    font-family: "Nunito Sans", "Segoe UI", system-ui, sans-serif;
     color: var(--ink);
     background: var(--board);
-    display: flex; flex-direction: column;
     overflow: hidden;
   }
-  .toolbar {
-    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-    padding: 6px 10px;
-    background: var(--bar);
-    border-bottom: 1px solid var(--line);
-    font-size: 14px;
-  }
-  .toolbar button {
-    font: inherit; color: var(--ink);
-    background: #fff; border: 1px solid var(--line); border-radius: 6px;
-    padding: 4px 10px; cursor: pointer;
-  }
-  .toolbar button:hover { border-color: var(--accent); }
-  .toolbar button:focus-visible, .note:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .toolbar .status { margin-left: auto; color: var(--muted); }
-  .viewport { flex: 1; overflow: auto; position: relative; touch-action: none; }
+
+  /* ---------- Fläche ---------- */
+  .viewport { position: absolute; inset: 0; overflow: auto; }
+  .sizer { position: relative; }
   .board {
-    position: relative;
+    position: absolute; top: 0; left: 0;
     transform-origin: 0 0;
-    background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px);
-    background-size: 24px 24px;
+    background-image: radial-gradient(var(--dot) 1.1px, transparent 1.1px);
+    background-size: 22px 22px;
   }
+
+  /* ---------- Zettel ---------- */
   .note {
     position: absolute;
     width: var(--note-w);
     min-height: 120px;
-    padding: 18px 14px 12px;
-    background: var(--c, #fff3a8);
-    border-radius: 2px 2px 14px 2px;
-    box-shadow: 0 1px 1px rgba(30,40,50,.18), 0 6px 14px -6px rgba(30,40,50,.35);
+    padding: 24px 16px 12px;
+    background: var(--c, #fff4b3);
+    border-radius: 6px 6px 22px 6px;
+    box-shadow: 0 1px 1px rgba(40,50,35,.10), 0 10px 18px -10px rgba(40,50,35,.35);
     transform: rotate(var(--tilt, 0deg));
-    cursor: grab;
-    user-select: none;
-    touch-action: none;
+    display: flex; flex-direction: column; gap: 8px;
+    cursor: grab; user-select: none; touch-action: none;
   }
-  .note::before { /* Pin */
-    content: ""; position: absolute; top: 5px; left: 50%;
-    width: 10px; height: 10px; margin-left: -5px; border-radius: 50%;
-    background: #b5473a; box-shadow: 0 1px 2px rgba(0,0,0,.4);
+  .note::before { /* Klebestreifen */
+    content: ""; position: absolute; top: -8px; left: 50%;
+    width: 64px; height: 18px; margin-left: -32px;
+    background: rgba(255,255,255,.55);
+    border: 1px solid rgba(255,255,255,.7);
+    transform: rotate(-3deg);
   }
   .note.dragging {
     cursor: grabbing; z-index: 9999;
     transform: rotate(0deg) scale(1.04);
-    box-shadow: 0 2px 2px rgba(30,40,50,.15), 0 16px 28px -8px rgba(30,40,50,.45);
+    box-shadow: 0 2px 2px rgba(40,50,35,.12), 0 18px 30px -10px rgba(40,50,35,.45);
   }
   .note.selected { outline: 2px solid var(--accent); outline-offset: 3px; }
   .note h3 {
-    margin: 0 0 6px;
-    font-family: "Kalam", "Comic Sans MS", cursive;
-    font-weight: 700; font-size: 19px; line-height: 1.2;
+    margin: 0;
+    font-family: "Fredoka", "Nunito Sans", sans-serif;
+    font-weight: 600; font-size: 18px; line-height: 1.25;
     overflow-wrap: anywhere;
   }
-  .note .people { font-size: 14px; line-height: 1.35; margin-bottom: 6px; }
-  .note .time { font-size: 13px; color: var(--muted); }
+  .note .people {
+    display: flex; align-items: flex-start; gap: 6px;
+    font-size: 13px; line-height: 1.4; color: #3c4239;
+  }
+  .note .people svg { width: 14px; height: 14px; margin-top: 2px; flex: none; }
+  .note .time { font-size: 12px; color: var(--muted); }
+
   .controls {
+    margin-top: 4px;
     display: flex; justify-content: flex-end; align-items: center; gap: 6px;
-    margin-top: 10px;
   }
   .controls select {
-    font: inherit; font-size: 10.8px; color: var(--ink);
-    max-width: 126px; padding: 2px 4px;
+    height: 28px; max-width: 150px; padding: 0 6px 0 10px;
+    font: inherit; font-size: 12px; font-weight: 600; color: var(--ink);
     background: transparent;
-    border: 1px solid rgba(34,40,46,.3); border-radius: 4px;
+    border: 1px solid rgba(43,47,42,.28); border-radius: 999px;
     cursor: pointer;
   }
+  .controls select.empty-cat { color: #5f665a; }
   .flag {
-    width: 26px; height: 26px; padding: 2px;
-    background: none; border: 0; border-radius: 4px; cursor: pointer;
+    width: 32px; height: 32px; padding: 0;
+    background: none; border: 0; border-radius: 8px; cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
   }
   .flag:hover { background: rgba(255,255,255,.45); }
   .flag svg { width: 20px; height: 20px; display: block; }
   .flag path { fill: transparent; stroke: var(--ink); stroke-width: 1.8; stroke-linejoin: round; }
   .flag.on path { fill: var(--flag); stroke: var(--flag); }
-  .controls select:focus-visible, .flag:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---------- Schwebende Menüleiste ---------- */
+  .toolbar {
+    position: fixed; left: 50%; bottom: 18px; z-index: 10000;
+    transform: translateX(-50%);
+    max-width: calc(100% - 24px);
+    padding: 6px;
+    display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px;
+    background: #ffffff; border-radius: 26px;
+    box-shadow: 0 2px 4px rgba(40,50,35,.10), 0 12px 28px rgba(40,50,35,.16);
+    font-size: 13px; white-space: nowrap;
+  }
+  .toolbar button {
+    height: 40px; padding: 0 16px;
+    font: inherit; font-weight: 600; color: var(--ink);
+    background: transparent; border: 0; border-radius: 999px; cursor: pointer;
+  }
+  .toolbar button:hover { background: var(--hover); }
+  .toolbar .icon { width: 40px; padding: 0; font-size: 20px; }
+  .toolbar .primary { font-weight: 700; }
+  .toolbar .zoom { min-width: 46px; text-align: center; font-weight: 700; }
+  .toolbar .sep { width: 1px; height: 22px; margin: 0 6px; background: #dfe3da; }
+  .toolbar .status { padding: 0 14px 0 8px; color: #5a6155; }
+
+  .toolbar button:focus-visible, .note:focus-visible,
+  .controls select:focus-visible, .flag:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
   .empty {
-    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    position: absolute; inset: 0 0 90px; display: flex; align-items: center; justify-content: center;
     padding: 24px; text-align: center; color: var(--muted); font-size: 15px; line-height: 1.5;
   }
   @media (prefers-reduced-motion: no-preference) {
     .note { transition: box-shadow .15s, transform .15s; }
+    .toolbar button { transition: background-color .12s; }
   }
 </style>
 </head>
 <body>
-  <div class="toolbar">
-    <button id="zoomOut" title="Verkleinern">−</button>
-    <button id="zoomIn" title="Vergrößern">+</button>
-    <button id="arrangeNew" title="Zettel ohne Position im Raster ablegen">Neue anordnen</button>
-    <button id="arrangeAll" title="Alle Zettel neu im Raster anordnen">Alle neu anordnen</button>
-    <span class="status" id="status"></span>
-  </div>
   <div class="viewport" id="viewport">
-    <div class="board" id="board"></div>
+    <div class="sizer" id="sizer">
+      <div class="board" id="board"></div>
+    </div>
+  </div>
+
+  <div class="toolbar" role="toolbar" aria-label="Pinnwand">
+    <button class="icon" id="zoomOut" aria-label="Verkleinern" title="Verkleinern">−</button>
+    <span class="zoom" id="zoomLabel">100 %</span>
+    <button class="icon" id="zoomIn" aria-label="Vergrößern" title="Vergrößern">+</button>
+    <span class="sep"></span>
+    <button class="primary" id="arrangeNew" title="Zettel ohne Position im Raster ablegen">Neue anordnen</button>
+    <button id="arrangeAll" title="Alle Zettel neu im Raster anordnen">Alle neu anordnen</button>
+    <button id="fitAll" title="Herauszoomen, bis alle Zettel sichtbar sind">Alles anzeigen</button>
+    <span class="status" id="status"></span>
   </div>
 
 <script>
 (function () {
-  const PALETTE = ['#fff3a8', '#ffd6dc', '#cdeccf', '#cfe3fb', '#ffe0b8', '#e4d8f7', '#d4f1ee'];
-  const GRID_X = 240, GRID_Y = 190, MARGIN = 30;
+  const DEFAULT_PAPER = '#fff4b3';
+  const GRID_X = 270, GRID_Y = 230, MARGIN = 40;
+  const TOOLBAR_SPACE = 90;              // Platz unter den Zetteln für die schwebende Leiste
+  const MIN_ZOOM = 0.2, MAX_ZOOM = 1.6;
 
   const board = document.getElementById('board');
+  const sizer = document.getElementById('sizer');
   const viewport = document.getElementById('viewport');
   const statusEl = document.getElementById('status');
+  const zoomLabel = document.getElementById('zoomLabel');
 
   let notes = [];          // gemappte Datensätze
   let mappings = null;     // Widget-Name -> Spalten-ID
@@ -142,54 +174,12 @@
   let selectedId = null;
   let zoom = 1;
   let choices = [];        // Auswahlwerte der Kategorie-Spalte
-  let choiceColors = {};   // Farben der Auswahlwerte aus Grist
+  let statusTimer = null;
 
   const FLAG_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-5.2L6 21z"/></svg>';
+  const PERSON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>';
 
-  // Liest die Auswahlwerte der zugeordneten Choice-Spalte aus den Grist-Metadaten
-  async function loadChoices() {
-    const colId = mappings && mappings.Kategorie;
-    if (!colId) { choices = []; choiceColors = {}; return; }
-    try {
-      let tableRef = null;
-      try {
-        const tableId = await grist.selectedTable.getTableId();
-        const tables = await grist.docApi.fetchTable('_grist_Tables');
-        const i = tables.tableId.indexOf(tableId);
-        if (i >= 0) tableRef = tables.id[i];
-      } catch (e) { /* ältere Grist-Version: nur nach Spalten-ID suchen */ }
-      const cols = await grist.docApi.fetchTable('_grist_Tables_column');
-      for (let i = 0; i < cols.id.length; i++) {
-        if (cols.colId[i] !== colId) continue;
-        if (tableRef !== null && cols.parentId[i] !== tableRef) continue;
-        const opts = JSON.parse(cols.widgetOptions[i] || '{}');
-        choices = opts.choices || [];
-        choiceColors = opts.choiceOptions || {};
-        return;
-      }
-    } catch (e) {
-      console.warn('Kategorien konnten nicht geladen werden', e);
-    }
-  }
-
-  function categoryOptions(current) {
-    const list = choices.slice();
-    if (current && !list.includes(current)) list.push(current); // Wert behalten, auch wenn er keine gültige Auswahl ist
-    return '<option value="">Kategorie</option>' + list.map(c =>
-      '<option value="' + esc(c) + '"' + (c === current ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
-  }
-
-  async function saveField(id, widgetCol, value) {
-    if (!mappings || !mappings[widgetCol]) return;
-    statusEl.textContent = 'Speichere …';
-    try {
-      await grist.selectedTable.update({ id, fields: { [mappings[widgetCol]]: value } });
-    } catch (e) {
-      console.error(e);
-      statusEl.textContent = 'Nicht gespeichert: Zugriffsstufe „Full document access“ erteilen.';
-    }
-  }
-
+  // ---------- Grist ----------
   grist.ready({
     requiredAccess: 'full',
     allowSelectBy: true,
@@ -201,8 +191,8 @@
       { name: 'Ende', title: 'Ende', type: 'Date,DateTime', optional: true },
       { name: 'Laufzeit', title: 'Laufzeit (Text)', type: 'Any', optional: true,
         description: 'Wenn gesetzt, wird dies statt Beginn–Ende angezeigt' },
-      { name: 'Farbe', title: 'Farbe', type: 'Any', optional: true,
-        description: 'Hex-Farbe (#ffcc00) oder Kategorie wie Status/Choice' },
+      { name: 'Farbe', title: 'Farbe (Hex)', type: 'Any', optional: true,
+        description: 'Zettelfarbe als Hex-Wert, z. B. #ffcc00; leer = gelb' },
       { name: 'Markiert', title: 'Markiert (Flagge)', type: 'Bool', optional: true,
         description: 'Toggle-Spalte; True = rote Flagge' },
       { name: 'Kategorie', title: 'Kategorie (Dropdown)', type: 'Choice', optional: true,
@@ -236,6 +226,31 @@
       el.classList.toggle('selected', Number(el.dataset.id) === selectedId));
   });
 
+  // Liest die Auswahlwerte der zugeordneten Choice-Spalte aus den Grist-Metadaten
+  async function loadChoices() {
+    const colId = mappings && mappings.Kategorie;
+    if (!colId) { choices = []; return; }
+    try {
+      let tableRef = null;
+      try {
+        const tableId = await grist.selectedTable.getTableId();
+        const tables = await grist.docApi.fetchTable('_grist_Tables');
+        const i = tables.tableId.indexOf(tableId);
+        if (i >= 0) tableRef = tables.id[i];
+      } catch (e) { /* ältere Grist-Version: nur nach Spalten-ID suchen */ }
+      const cols = await grist.docApi.fetchTable('_grist_Tables_column');
+      for (let i = 0; i < cols.id.length; i++) {
+        if (cols.colId[i] !== colId) continue;
+        if (tableRef !== null && cols.parentId[i] !== tableRef) continue;
+        const opts = JSON.parse(cols.widgetOptions[i] || '{}');
+        choices = opts.choices || [];
+        return;
+      }
+    } catch (e) {
+      console.warn('Kategorien konnten nicht geladen werden', e);
+    }
+  }
+
   // ---------- Hilfsfunktionen ----------
   function esc(s) {
     return String(s).replace(/[&<>"']/g, c =>
@@ -249,7 +264,7 @@
   }
   function fmtDate(v) {
     if (v === null || v === undefined || v === '') return '';
-    let d = v instanceof Date ? v : (typeof v === 'number' ? new Date(v * 1000) : new Date(v));
+    const d = v instanceof Date ? v : (typeof v === 'number' ? new Date(v * 1000) : new Date(v));
     if (isNaN(d)) return String(v);
     return d.toLocaleDateString('de-DE', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' });
   }
@@ -257,18 +272,38 @@
     let h = 0; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) | 0;
     return Math.abs(h);
   }
-  function colorFor(n) {
-    const f = n.Farbe;
-    if (typeof f === 'string' && /^#[0-9a-f]{3,8}$/i.test(f.trim())) return f.trim();
-    if (f !== null && f !== undefined && f !== '') return PALETTE[hash(toText(f)) % PALETTE.length];
-    return PALETTE[0];
+  // Zettelfarbe nur aus der Farbe-Spalte (Hex-Wert); sonst gelb
+  function paperFor(n) {
+    const f = toText(n.Farbe).trim();
+    const hex = f && !f.startsWith('#') ? '#' + f : f;   // "ffcc00" wird wie "#ffcc00" behandelt
+    return /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(hex) ? hex : DEFAULT_PAPER;
   }
   function hasPos(n) {
     return typeof n.PosX === 'number' && typeof n.PosY === 'number' && !(n.PosX === 0 && n.PosY === 0);
   }
+  function categoryOptions(current) {
+    const list = choices.slice();
+    if (current && !list.includes(current)) list.push(current);
+    return '<option value="">Kategorie</option>' + list.map(c =>
+      '<option value="' + esc(c) + '"' + (c === current ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
+  }
+  function setStatus(text, temporary) {
+    clearTimeout(statusTimer);
+    statusEl.textContent = text;
+    if (temporary) statusTimer = setTimeout(updateCount, 1500);
+  }
+  function updateCount() {
+    if (!notes.length) { statusEl.textContent = ''; return; }
+    const unplaced = notes.filter(n => !hasPos(n)).length;
+    statusEl.textContent = notes.length + ' Projekte' + (unplaced ? ', ' + unplaced + ' ohne Position' : '');
+  }
   function showEmpty(msg) {
     board.innerHTML = '';
-    board.style.width = '100%'; board.style.height = '100%';
+    board.style.width = viewport.clientWidth + 'px';
+    board.style.height = viewport.clientHeight + 'px';
+    board.style.transform = 'none';
+    sizer.style.width = viewport.clientWidth + 'px';
+    sizer.style.height = viewport.clientHeight + 'px';
     const div = document.createElement('div');
     div.className = 'empty'; div.textContent = msg;
     board.appendChild(div);
@@ -280,7 +315,6 @@
     if (!notes.length) { showEmpty('Keine Projekte in dieser Ansicht. Filter prüfen oder Projekte anlegen.'); return; }
     board.innerHTML = '';
     const fallback = gridPositions(notes.filter(n => !hasPos(n)), maxY());
-    let maxX = 0, maxYv = 0;
 
     notes.forEach(n => {
       const pos = hasPos(n) ? { x: n.PosX, y: n.PosY } : fallback.get(n.id);
@@ -290,7 +324,7 @@
       el.dataset.id = n.id;
       el.style.left = pos.x + 'px';
       el.style.top = pos.y + 'px';
-      el.style.setProperty('--c', colorFor(n));
+      el.style.setProperty('--c', paperFor(n));
       el.style.setProperty('--tilt', ((hash(n.id) % 5) - 2) * 0.6 + 'deg');
 
       const people = toText(n.Begleiter);
@@ -299,62 +333,74 @@
 
       el.innerHTML =
         '<h3>' + esc(toText(n.Titel) || 'Ohne Titel') + '</h3>' +
-        (people ? '<div class="people">' + esc(people) + '</div>' : '') +
+        (people ? '<div class="people">' + PERSON_SVG + '<span>' + esc(people) + '</span></div>' : '') +
         (time ? '<div class="time">' + esc(time) + '</div>' : '');
 
-      // Steuerelemente unten rechts: Kategorie-Dropdown, dann Flagge
-      if (mappings.Kategorie || mappings.Markiert) {
-        const ctr = document.createElement('div');
-        ctr.className = 'controls';
-
-        if (mappings.Kategorie) {
-          const cur = toText(n.Kategorie);
-          const sel = document.createElement('select');
-          sel.title = 'Kategorie wählen';
-          sel.innerHTML = categoryOptions(cur);
-          const fill = cur && choiceColors[cur] && choiceColors[cur].fillColor;
-          if (fill) sel.style.background = fill;
-          sel.addEventListener('change', () => {
-            n.Kategorie = sel.value;
-            const c = choiceColors[sel.value] && choiceColors[sel.value].fillColor;
-            sel.style.background = c || '';
-            saveField(n.id, 'Kategorie', sel.value);
-          });
-          ctr.appendChild(sel);
-        }
-
-        if (mappings.Markiert) {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          const setState = on => {
-            btn.classList.toggle('on', on);
-            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-            btn.title = on ? 'Markierung entfernen' : 'Markieren';
-          };
-          btn.className = 'flag';
-          btn.innerHTML = FLAG_SVG;
-          setState(n.Markiert === true);
-          btn.addEventListener('click', () => {
-            n.Markiert = !(n.Markiert === true);
-            setState(n.Markiert);
-            saveField(n.id, 'Markiert', n.Markiert);
-          });
-          ctr.appendChild(btn);
-        }
-        el.appendChild(ctr);
-      }
+      if (mappings.Kategorie || mappings.Markiert) el.appendChild(buildControls(n, el));
 
       el.addEventListener('pointerdown', startDrag);
       el.addEventListener('keydown', keyMove);
       board.appendChild(el);
-      maxX = Math.max(maxX, pos.x); maxYv = Math.max(maxYv, pos.y);
     });
 
-    board.style.width = Math.max(maxX + 600, viewport.clientWidth / zoom) + 'px';
-    board.style.height = Math.max(maxYv + 500, viewport.clientHeight / zoom) + 'px';
+    updateBoardSize();
+    updateCount();
+  }
+
+  function buildControls(n, noteEl) {
+    const ctr = document.createElement('div');
+    ctr.className = 'controls';
+
+    if (mappings.Kategorie) {
+      const cur = toText(n.Kategorie);
+      const sel = document.createElement('select');
+      sel.setAttribute('aria-label', 'Kategorie');
+      sel.innerHTML = categoryOptions(cur);
+      sel.classList.toggle('empty-cat', !cur);
+      sel.addEventListener('change', () => {
+        n.Kategorie = sel.value;
+        sel.classList.toggle('empty-cat', !sel.value);
+        saveField(n.id, 'Kategorie', sel.value);
+      });
+      ctr.appendChild(sel);
+    }
+
+    if (mappings.Markiert) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'flag';
+      btn.innerHTML = FLAG_SVG;
+      const setState = on => {
+        btn.classList.toggle('on', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.title = on ? 'Markierung entfernen' : 'Markieren';
+      };
+      setState(n.Markiert === true);
+      btn.addEventListener('click', () => {
+        n.Markiert = !(n.Markiert === true);
+        setState(n.Markiert);
+        saveField(n.id, 'Markiert', n.Markiert);
+      });
+      ctr.appendChild(btn);
+    }
+    return ctr;
+  }
+
+  // Fläche so groß wie nötig; die Scrollfläche entspricht der gezoomten Größe
+  function updateBoardSize() {
+    let maxX = 0, maxYv = 0;
+    board.querySelectorAll('.note').forEach(el => {
+      maxX = Math.max(maxX, el.offsetLeft + el.offsetWidth);
+      maxYv = Math.max(maxYv, el.offsetTop + el.offsetHeight);
+    });
+    const w = Math.max(maxX + 400, viewport.clientWidth / zoom);
+    const h = Math.max(maxYv + TOOLBAR_SPACE + 300, viewport.clientHeight / zoom);
+    board.style.width = w + 'px';
+    board.style.height = h + 'px';
     board.style.transform = 'scale(' + zoom + ')';
-    const unplaced = notes.filter(n => !hasPos(n)).length;
-    statusEl.textContent = notes.length + ' Projekte' + (unplaced ? ', ' + unplaced + ' ohne gespeicherte Position' : '');
+    sizer.style.width = w * zoom + 'px';
+    sizer.style.height = h * zoom + 'px';
+    zoomLabel.textContent = Math.round(zoom * 100) + ' %';
   }
 
   function maxY() {
@@ -371,18 +417,65 @@
     return map;
   }
 
+  // ---------- Zoom ----------
+  function setZoom(z, centerX, centerY) {
+    // Punkt, der in der Mitte bleiben soll (in Pinnwand-Koordinaten)
+    const vw = viewport.clientWidth, vh = viewport.clientHeight;
+    const cx = centerX !== undefined ? centerX : (viewport.scrollLeft + vw / 2) / zoom;
+    const cy = centerY !== undefined ? centerY : (viewport.scrollTop + vh / 2) / zoom;
+    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+    updateBoardSize();
+    viewport.scrollLeft = cx * zoom - vw / 2;
+    viewport.scrollTop = cy * zoom - vh / 2;
+  }
+
+  // "Alles anzeigen": herauszoomen und Ausschnitt so setzen, dass alle Zettel sichtbar sind
+  function fitAll() {
+    const els = board.querySelectorAll('.note');
+    if (!els.length) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxYv = -Infinity;
+    els.forEach(el => {
+      minX = Math.min(minX, el.offsetLeft);
+      minY = Math.min(minY, el.offsetTop);
+      maxX = Math.max(maxX, el.offsetLeft + el.offsetWidth);
+      maxYv = Math.max(maxYv, el.offsetTop + el.offsetHeight);
+    });
+    const pad = 24;
+    const availW = viewport.clientWidth - 2 * pad;
+    const availH = viewport.clientHeight - pad - TOOLBAR_SPACE;
+    const z = Math.min(1, availW / (maxX - minX), availH / (maxYv - minY));
+    zoom = Math.max(MIN_ZOOM, z);
+    updateBoardSize();
+    // Inhalt mittig in den freien Bereich über der Menüleiste setzen
+    const contentW = (maxX - minX) * zoom, contentH = (maxYv - minY) * zoom;
+    viewport.scrollLeft = minX * zoom - (viewport.clientWidth - contentW) / 2;
+    viewport.scrollTop = minY * zoom - (viewport.clientHeight - TOOLBAR_SPACE - contentH) / 2;
+  }
+
   // ---------- Speichern ----------
   async function save(updates) {
     if (!updates.length || !mappings) return;
-    statusEl.textContent = 'Speichere …';
+    setStatus('Speichere …');
     try {
       await grist.selectedTable.update(updates.map(u => ({
         id: u.id,
         fields: { [mappings.PosX]: Math.round(u.x), [mappings.PosY]: Math.round(u.y) }
       })));
+      setStatus('Gespeichert', true);
     } catch (e) {
       console.error(e);
-      statusEl.textContent = 'Position nicht gespeichert: Zugriffsstufe „Full document access“ erteilen.';
+      setStatus('Nicht gespeichert: „Full document access“ erteilen');
+    }
+  }
+  async function saveField(id, widgetCol, value) {
+    if (!mappings || !mappings[widgetCol]) return;
+    setStatus('Speichere …');
+    try {
+      await grist.selectedTable.update({ id, fields: { [mappings[widgetCol]]: value } });
+      setStatus('Gespeichert', true);
+    } catch (e) {
+      console.error(e);
+      setStatus('Nicht gespeichert: „Full document access“ erteilen');
     }
   }
 
@@ -391,10 +484,9 @@
     if (e.button !== undefined && e.button !== 0) return;
     if (e.target.closest('.controls')) return; // Dropdown/Flagge bedienen statt ziehen
     const el = e.currentTarget;
-    const id = Number(el.dataset.id);
     el.setPointerCapture(e.pointerId);
     dragging = {
-      el, id, moved: false,
+      el, id: Number(el.dataset.id), moved: false,
       startX: e.clientX, startY: e.clientY,
       origX: parseFloat(el.style.left), origY: parseFloat(el.style.top)
     };
@@ -411,7 +503,7 @@
     dragging.el.style.left = Math.max(0, dragging.origX + dx) + 'px';
     dragging.el.style.top = Math.max(0, dragging.origY + dy) + 'px';
   }
-  async function endDrag(e) {
+  async function endDrag() {
     if (!dragging) return;
     const d = dragging;
     d.el.removeEventListener('pointermove', onDrag);
@@ -423,6 +515,7 @@
       const x = parseFloat(d.el.style.left), y = parseFloat(d.el.style.top);
       const n = notes.find(n => n.id === d.id);
       if (n) { n.PosX = x; n.PosY = y; }
+      updateBoardSize();
       await save([{ id: d.id, x, y }]);
     } else {
       grist.setCursorPos({ rowId: d.id }); // Klick: Datensatz auswählen (für verknüpfte Widgets)
@@ -431,9 +524,9 @@
   }
   function keyMove(e) {
     if (e.target !== e.currentTarget) return; // Tasten im Dropdown/Button nicht abfangen
+    if (e.key === 'Enter') { grist.setCursorPos({ rowId: Number(e.currentTarget.dataset.id) }); return; }
     const step = e.shiftKey ? 50 : 10;
     const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
-    if (e.key === 'Enter') { grist.setCursorPos({ rowId: Number(e.currentTarget.dataset.id) }); return; }
     if (!delta) return;
     e.preventDefault();
     const el = e.currentTarget;
@@ -444,12 +537,13 @@
     el._t = setTimeout(() => save([{ id: Number(el.dataset.id), x, y }]), 400);
   }
 
-  // ---------- Toolbar ----------
-  function setZoom(z) { zoom = Math.min(1.6, Math.max(0.4, z)); render(); }
+  // ---------- Menüleiste ----------
   document.getElementById('zoomIn').onclick = () => setZoom(zoom + 0.1);
   document.getElementById('zoomOut').onclick = () => setZoom(zoom - 0.1);
+  document.getElementById('fitAll').onclick = fitAll;
   document.getElementById('arrangeNew').onclick = () => {
     const list = notes.filter(n => !hasPos(n));
+    if (!list.length) { setStatus('Alle Zettel haben schon eine Position', true); return; }
     const pos = gridPositions(list, maxY());
     save(list.map(n => ({ id: n.id, ...pos.get(n.id) })));
   };
@@ -458,7 +552,7 @@
     const pos = gridPositions(notes, MARGIN);
     save(notes.map(n => ({ id: n.id, ...pos.get(n.id) })));
   };
-  window.addEventListener('resize', () => { if (!dragging && notes.length) render(); });
+  window.addEventListener('resize', () => { if (!dragging && notes.length) updateBoardSize(); });
 })();
 </script>
 </body>
